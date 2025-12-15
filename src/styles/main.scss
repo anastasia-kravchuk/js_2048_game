@@ -198,7 +198,7 @@ h1 {
 }
 
 .spawn {
-  animation: show 200ms ease-out;
+  animation: show 120ms ease-out;
 }
 
 @keyframes merge-cells {
@@ -215,5 +215,5 @@ h1 {
 }
 
 .merge {
-  animation: mergeCells 180ms ease-out;
+  animation: merge-cells 180ms ease-out;
 }
