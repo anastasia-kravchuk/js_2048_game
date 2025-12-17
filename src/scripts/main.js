@@ -1,126 +1,89 @@
 'use strict';
 
 const Game = require('../modules/Game.class');
-const game = new Game();
+const BoardView = require('../modules/BoardView');
 
-const buttonEl = document.querySelector('.button.start');
-const scoreEl = document.querySelector('.game-score');
-const cellsEl = Array.from(document.querySelectorAll('.field-cell'));
-const messageStartEl = document.querySelector('.message.message-start');
-const messageWinEl = document.querySelector('.message.message-win');
-const messageLoseEl = document.querySelector('.message.message-lose');
+document.addEventListener('DOMContentLoaded', () => {
+  const game = new Game();
 
-function render(prevState = null) {
-  const state = game.getState();
-  const score = game.getScore();
-  const gameStatus = game.getStatus();
+  const buttonEl = document.querySelector('.button');
+  const scoreEl = document.querySelector('.game-score');
+  const messageStartEl = document.querySelector('.message.message-start');
+  const messageWinEl = document.querySelector('.message.message-win');
+  const messageLoseEl = document.querySelector('.message.message-lose');
 
-  scoreEl.textContent = `${score}`;
+  const gameField = document.querySelector('.game-field');
+  const tilesLayer = document.querySelector('.tiles-layer');
 
-  for (let i = 0; i < 4; i++) {
-    for (let j = 0; j < 4; j++) {
-      const cellValue = state[i][j];
-      const cellEl = cellsEl[i * 4 + j];
+  const boardView = new BoardView(game, tilesLayer, gameField);
 
-      cellEl.className = 'field-cell';
-      cellEl.textContent = '';
+  const keyMap = {
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+  };
 
-      if (cellValue !== 0) {
-        cellEl.textContent = cellValue;
-        cellEl.classList.add(`field-cell--${cellValue}`);
+  let isAnimating = false;
 
-        if (prevState && prevState[i][j] === 0) {
-          cellEl.classList.add('spawn');
+  function updateUI() {
+    scoreEl.textContent = String(game.getScore());
 
-          const handleAnimationEnd = () => {
-            cellEl.classList.remove('spawn');
-            cellEl.removeEventListener('animationend', handleAnimationEnd);
-          };
+    messageStartEl.classList.toggle('hidden', game.getStatus() !== 'idle');
+    messageWinEl.classList.toggle('hidden', game.getStatus() !== 'win');
+    messageLoseEl.classList.toggle('hidden', game.getStatus() !== 'lose');
 
-          cellEl.addEventListener('animationend', handleAnimationEnd);
-        }
-
-        if (
-          prevState &&
-          prevState[i][j] !== 0 &&
-          cellValue !== 0 &&
-          cellValue > prevState[i][j]
-        ) {
-          cellEl.classList.add('merge');
-
-          const handleAnimationEnd = () => {
-            cellEl.classList.remove('merge');
-            cellEl.removeEventListener('animationend', handleAnimationEnd);
-          };
-
-          cellEl.addEventListener('animationend', handleAnimationEnd);
-        }
-      }
+    if (game.getStatus() === 'idle') {
+      buttonEl.textContent = 'Start';
+      buttonEl.classList.add('start');
+      buttonEl.classList.remove('restart');
+    } else {
+      buttonEl.textContent = 'Restart';
+      buttonEl.classList.add('restart');
+      buttonEl.classList.remove('start');
     }
   }
 
-  messageStartEl.classList.toggle('hidden', gameStatus !== 'idle');
-  messageWinEl.classList.toggle('hidden', gameStatus !== 'win');
-  messageLoseEl.classList.toggle('hidden', gameStatus !== 'lose');
+  buttonEl.addEventListener('click', () => {
+    if (game.getStatus() === 'idle') {
+      game.start();
+    } else {
+      game.restart();
+    }
 
-  if (gameStatus === 'idle') {
-    buttonEl.textContent = 'Start';
-    buttonEl.classList.add('start');
-    buttonEl.classList.remove('restart');
-  } else {
-    buttonEl.textContent = 'Restart';
-    buttonEl.classList.add('restart');
-    buttonEl.classList.remove('start');
-  }
-}
+    boardView.syncInitial(game.getState());
+    updateUI();
+  });
 
-function handleStartRestart() {
-  const gameStatus = game.getStatus();
+  document.addEventListener('keydown', (ev) => {
+    const direction = keyMap[ev.key];
 
-  if (gameStatus === 'idle') {
-    game.start();
-    render();
-  } else {
-    game.restart();
-    render();
-  }
-}
+    if (!direction) {
+      return;
+    }
 
-buttonEl.addEventListener('click', handleStartRestart);
+    ev.preventDefault();
 
-function handleKeyDown(ev) {
-  const key = ev.key;
+    if (isAnimating || game.getStatus() !== 'playing') {
+      return;
+    }
 
-  if (
-    key !== 'ArrowUp' &&
-    key !== 'ArrowDown' &&
-    key !== 'ArrowLeft' &&
-    key !== 'ArrowRight'
-  ) {
-    return;
-  }
+    const result = game.moveWithMeta(direction);
 
-  ev.preventDefault();
+    if (!result) {
+      return;
+    }
 
-  const prevState = structuredClone(game.getState());
+    isAnimating = true;
 
-  if (key === 'ArrowUp') {
-    game.moveUp();
-  }
+    boardView.applyMoves(result.meta);
 
-  if (key === 'ArrowDown') {
-    game.moveDown();
-  }
+    setTimeout(() => {
+      boardView.syncInitial(game.getState());
+      updateUI();
+      isAnimating = false;
+    }, 160);
+  });
 
-  if (key === 'ArrowLeft') {
-    game.moveLeft();
-  }
-
-  if (key === 'ArrowRight') {
-    game.moveRight();
-  }
-
-  render(prevState);
-}
-
-document.addEventListener('keydown', handleKeyDown);
+  updateUI();
+});
